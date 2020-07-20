@@ -14,7 +14,7 @@ exports.Router = (function () {
   apiRouter.route('/users/me/').get(userCtrl.getUserProfile);
   apiRouter.route('/users/me/').put(userCtrl.updateUserProfile);
   apiRouter.route('/users/password/reset/:token').post(userCtrl.resetPassword);
-  apiRouter.route('/users/password/forgot').post(userCtrl.forgotPassword);
+  apiRouter.route('/users/password/forgot').put(userCtrl.forgotPassword);
   apiRouter.route('/users/isAdmin/:user/').put(userCtrl.putAdmin);
 
   // products route

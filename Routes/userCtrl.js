@@ -315,15 +315,64 @@ module.exports = {
       })
     },
     resetPassword: function(req, res) {
-      var token = req.params.token;
 
-      
+      asyncLib.waterfall([
+        function(done) {
+          models.User.findOne({
+            where: { resetPasswordToken: req.params.token, 
+                          resetPasswordExpires: { $gt: Date.now() } 
+            }
+          }).then(function(userFound) {
+            done(null, userFound);
+          }).catch(function(err) {
+            return res.status(500).json({ 'error': 'Password reset token is invalid or has expired.' });
+          });
+        },
+        function(userFound, done) {
+          if(userFound) {
+            userFound.update({
+              resetPasswordToken: undefined,
+              resetPasswordExpires: undefined
+            }).then(function(userFound) {
+              done(null, userFound);
+            }).catch(function(err) {
+              res.status(500).json({ 'error': 'cannot update user' });
+            });
+          }
+        },
+        function(userFound, done) {
+          var smtpTransport = nodemailer.createTransport({
+            service: 'Gmail', 
+            auth: {
+              user: 'learntocodeinfo@gmail.com',
+              pass: process.env.GMAILPW
+            }
+          });
+          var mailOptions = {
+            to: userFound.email,
+            from: 'learntocodeinfo@mail.com',
+            subject: 'Your password has been changed',
+            text: 'Hello,\n\n' +
+              'This is a confirmation that the password for your account ' + userFound.email + ' has just been changed.\n'
+          };
+          smtpTransport.sendMail(mailOptions, function(err) {
+            req.flash('success', 'Success! Your password has been changed.');
+            done(err);
+          });
+        }
+      ],
+      function(err) {
+       console.log('error');
+      });
     },
     forgotPassword: function(req, res, next) {
       var email = req.body.email;
 
       if (!EMAIL_REGEX.test(email)) {
         return res.status(400).json({'error': 'email is not valid'});
+      }
+      if(email == null) {
+        return res.status(400).json({ 'error': 'missing parameter' });
       }
 
       asyncLib.waterfall([
@@ -368,8 +417,7 @@ module.exports = {
           };
           smtpTransport.sendMail(mailOptions, function(err) {
             console.log('mail sent');
-            req.flash('success', 'An e-mail has been sent to ' + userFound.email + ' with further instructions.');
-            done(err, 'done');
+            return res.status(200).json('success', 'An e-mail has been sent to ' + userFound.email + ' with further instructions.');
           });
         }
       ],function(err){
